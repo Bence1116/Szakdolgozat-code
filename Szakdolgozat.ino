@@ -23,20 +23,20 @@ const int motor1_in1 = 12;
 const int motor1_in2 = 13;
 //Motor2 futószalag 
 const int motor2_enable=19;
-const int motor2_in1 = 8;
-const int motor2_in2 = 5;
+const int motor2_in1 = 32;
+const int motor2_in2 = 33;
 //Motor3 csapóajtó
 const int motor3_enable=17;
 const int motor3_in1 = 16;
 const int motor3_in2 = 4;
 //Motor4 lift
-const int motor4_enable = 0;
-const int motor4_in1 = 2;
-const int motor4_in2 = 15;
+const int motor4_enable = 14;
+const int motor4_in1 = 27;
+const int motor4_in2 = 26;
 //Motor5 toló
-const int motor5_enable = 14;
-const int motor5_in1 = 27;
-const int motor5_in2 = 26;
+const int motor5_enable = 18;
+const int motor5_in1 = 2;
+const int motor5_in2 = 15;
 //ventillátor
 const int motor6_in1=23;
 const int motor6_in2=25;
@@ -97,7 +97,9 @@ volatile bool DOOR_motor =false;
 volatile bool TRAPDOOR_motor =false;
 volatile bool CONVEYOR_motor =false;
 volatile bool LIFT_motor =false;
+volatile float Temperature = 0.0;
 volatile bool Reset_motors=false;
+volatile bool ventilator_state=false;
 //WiFi connection
 const char* ssid     = "Family Network";
 const char* password = "opel4ever";
@@ -156,7 +158,10 @@ void handleRoot() {
     </div>
 
     <div class="counter-wrap">
-      <div id="cnt">0</div>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div id="cnt" style="font-size:60px; color:black;">Számláló:0</div>
+        <div id="temp" style="font-size: 60px; color: black; margin-top: 20px;">Hőmérséklet:</div>
+      </div>
       <div class="wrap">
         <svg viewBox="0 0 900 420">
           <title>Folyamatábra</title>          
@@ -217,7 +222,14 @@ void handleRoot() {
       fetch('/value')
         .then(r => r.text())
         .then(t => document.getElementById('cnt').innerText = "Számláló: " + t);
+    }n
+
+    function updateTemp() {
+      fetch('/temperature')
+        .then(r => r.text())
+        .then(t => document.getElementById('temp').innerText = "Hőmérséklet: " + t);
     }
+
     // LED státusz lekérdezése és gomb színek
     function updateBtns() {
       fetch('/status')
@@ -275,10 +287,12 @@ void handleRoot() {
     updateCounter();
     updateSensors();
     updateBtns();
+    updateTemp();
     setInterval(updateCounter, 500);
     setInterval(updateSensors, 500);
     setInterval(updateBtns, 500);
     setInterval(updateReset, 500);
+    setInterval(updateTemp, 500);
   </script>
 </body>
 </html>
@@ -353,6 +367,13 @@ void handleSensors() {
   server.send(200, "application/json", json);
 }
 
+void handleTemperature() {
+  // Két tizedesjegyre formázza a számot és hozzáteszi a " °C"-t
+  String temperature = String(Temperature, 2) + " °C";
+  server.send(200, "text/plain", temperature);
+}
+
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -423,6 +444,7 @@ void setup() {
   server.on("/lift", handleLift);
   server.on("/sensors", handleSensors);
   server.on("/reset_motors", HTTP_GET, handleReset_motors);
+  server.on("/temperature", HTTP_GET, handleTemperature);
   server.begin();
   //Taskok
   xTaskCreatePinnedToCore(WebTask, "WebTask", 4096, NULL, 1, NULL,0);
@@ -465,7 +487,7 @@ void door_close(){
 //trapdoor le
 void trapdoor_le(){
   if(TRAPDOOR_motor==false){
-    ledcWriteChannel(pwmChannel_1, 100);
+    ledcWriteChannel(pwmChannel_1, 10);
     digitalWrite(motor3_in1, LOW);
     digitalWrite(motor3_in2, HIGH);
   } else{
@@ -478,7 +500,7 @@ void trapdoor_le(){
 //trapdoor fel
 void trapdoor_fel(){
   if(TRAPDOOR_motor==false){
-    ledcWriteChannel(pwmChannel_1, 100);
+    ledcWriteChannel(pwmChannel_1, 10);
     digitalWrite(motor3_in1, HIGH);
     digitalWrite(motor3_in2, LOW);
   } else{
@@ -491,9 +513,11 @@ void trapdoor_fel(){
 //szalag be
 void szalag_be(){
   if(CONVEYOR_motor ==false){
-    ledcWriteChannel(pwmChannel_0, 170);
+    for (int n=20; n<30; n++){
+    ledcWriteChannel(pwmChannel_0, n);
     digitalWrite(motor2_in1, HIGH);
     digitalWrite(motor2_in2, LOW);
+    vTaskDelay(pdMS_TO_TICKS(10));
   } else{
     szalag_ki();
   }
@@ -513,6 +537,7 @@ void lift_le(){
       ledcWriteChannel(pwmChannel_2, k);
       digitalWrite(motor4_in1, LOW);
       digitalWrite(motor4_in2, HIGH);
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   } else{
     ledcWriteChannel(pwmChannel_2, 0);
@@ -528,6 +553,7 @@ void lift_fel(){
       ledcWriteChannel(pwmChannel_2, i);
       digitalWrite(motor4_in1, HIGH);
       digitalWrite(motor4_in2, LOW);
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   } else{
     ledcWriteChannel(pwmChannel_2, 0);
@@ -587,8 +613,6 @@ void ventilator_ki(){
 
 //számláló
 void counter(){
- volatile bool value_door = mcp.digitalRead(sensor_door); //nem biztos, hogy kell
- Press_button_stop_state=mcp.digitalRead(Press_button_stop); //nem biztos, hogy kell
  
   if (value_door == HIGH && prev_sensor_state == LOW) {
     counterValue++;
@@ -746,6 +770,7 @@ void stopAll(){
   TRAPDOOR_motor =false;
   CONVEYOR_motor =false;
   LIFT_motor =false;
+  ventilator_state=false;
 }
 
 void loop() {
@@ -760,6 +785,7 @@ void loop() {
   Press_button_start_state=mcp.digitalRead(Press_button_start);
   // Számláló
   counter();
+  vTaskDelay(pdMS_TO_TICKS(10));
 }
 
 // WebTask: Core 0-on fut, kezeli a HTTP-kliens kéréseit
@@ -965,15 +991,22 @@ void startTask7(void *parameter) {
     }
     float avg = sum / 100.0;
     float voltage = avg * (3.3 / 4095);
-    float Temperature = (voltage / 0.01)+11.4; //korrekció
+    Temperature = (voltage / 0.01)+11.4; //korrekció
     Serial.print("Átlagolt hőmérséklet: ");
     Serial.print(Temperature, 2);
     Serial.println(" °C");
-    if (Temperature >= 50){
-        ventilator_be();
+
+    if (ventilator_state){
+      if (Temperature < 40){
+        ventilator_ki();
+        ventilator_state=false;
+      }
     } else{
-      ventilator_ki();
-    }
+        if (Temperature >= 45){
+        ventilator_be();
+        ventilator_state=true;
+        }
+      }
     vTaskDelay(pdMS_TO_TICKS(200));
   }
 }
