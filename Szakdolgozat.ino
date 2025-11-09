@@ -7,6 +7,20 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 
+// --- Előzetes függvény-/task-prototípusok (fontos: a setup előtt kell) ---
+void WebTask(void* pvParameters);
+void startTask1(void* parameter);
+void startTask2(void* parameter);
+void startTask3(void* parameter);
+void startTask4(void* parameter);
+void startTask5(void* parameter);
+void startTask6(void* parameter);
+void startTask7(void* parameter);
+
+void displayNumber(int number);
+void szalag_ki();
+void szalag_be();
+
 // MCP23017 objektum
 Adafruit_MCP23X17 mcp; // I²C portbővítő objektum
 //sensor, motorok
@@ -222,7 +236,7 @@ void handleRoot() {
       fetch('/value')
         .then(r => r.text())
         .then(t => document.getElementById('cnt').innerText = "Számláló: " + t);
-    }n
+    }
 
     function updateTemp() {
       fetch('/temperature')
@@ -453,15 +467,15 @@ void setup() {
   xTaskCreatePinnedToCore(startTask3, "Task_3", 2028, NULL, 2, NULL,1);
   xTaskCreatePinnedToCore(startTask4, "Task_4", 2028, NULL, 2, NULL,1);
   xTaskCreatePinnedToCore(startTask5, "Task_5", 2028, NULL, 2, NULL,1);
-  xTaskCreatePinnedToCore(startTask6, "Task_6", 2028, NULL, 2, NULL,1);  
-  xTaskCreatePinnedToCore(startTask7, "Task_7", 2028, NULL, 2, NULL,1); 
+  xTaskCreatePinnedToCore(startTask6, "Task_6", 2028, NULL, 2, NULL,1);
+  xTaskCreatePinnedToCore(startTask7, "Task_7", 2028, NULL, 2, NULL,1);  
 }
 // ajtó kinyitás
 void door(){
   if(DOOR_motor==false){
     digitalWrite(motor1_in1, LOW);
     digitalWrite(motor1_in2, HIGH);
-    vTaskDelay(50/ portTICK_PERIOD_MS);
+    vTaskDelay(100/ portTICK_PERIOD_MS);
     digitalWrite(motor1_in1, LOW);
     digitalWrite(motor1_in2, LOW);
   } else{
@@ -475,7 +489,7 @@ void door_close(){
   if(DOOR_motor==false){
     digitalWrite(motor1_in1, HIGH);
     digitalWrite(motor1_in2, LOW);
-    vTaskDelay(160/ portTICK_PERIOD_MS);
+    vTaskDelay(100/ portTICK_PERIOD_MS);
     digitalWrite(motor1_in1, LOW);
     digitalWrite(motor1_in2, LOW);
   } else{
@@ -487,7 +501,7 @@ void door_close(){
 //trapdoor le
 void trapdoor_le(){
   if(TRAPDOOR_motor==false){
-    ledcWriteChannel(pwmChannel_1, 10);
+    ledcWriteChannel(pwmChannel_1, 30);
     digitalWrite(motor3_in1, LOW);
     digitalWrite(motor3_in2, HIGH);
   } else{
@@ -500,7 +514,7 @@ void trapdoor_le(){
 //trapdoor fel
 void trapdoor_fel(){
   if(TRAPDOOR_motor==false){
-    ledcWriteChannel(pwmChannel_1, 10);
+    ledcWriteChannel(pwmChannel_1, 30);
     digitalWrite(motor3_in1, HIGH);
     digitalWrite(motor3_in2, LOW);
   } else{
@@ -513,11 +527,12 @@ void trapdoor_fel(){
 //szalag be
 void szalag_be(){
   if(CONVEYOR_motor ==false){
-    for (int n=20; n<30; n++){
-    ledcWriteChannel(pwmChannel_0, n);
-    digitalWrite(motor2_in1, HIGH);
-    digitalWrite(motor2_in2, LOW);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    for (int n=50; n<160; n++){
+      ledcWriteChannel(pwmChannel_0, n);
+      digitalWrite(motor2_in1, HIGH);
+      digitalWrite(motor2_in2, LOW);
+      vTaskDelay(pdMS_TO_TICKS(11));
+    } // <-- lezárjuk a for-t
   } else{
     szalag_ki();
   }
@@ -525,7 +540,7 @@ void szalag_be(){
 
 //szalag ki
 void szalag_ki(){
-  ledcWriteChannel(pwmChannel_0, 0);;
+  ledcWriteChannel(pwmChannel_0, 0);
   digitalWrite(motor2_in1, LOW);
   digitalWrite(motor2_in2, LOW);
 }
@@ -533,10 +548,10 @@ void szalag_ki(){
 //Lift le 
 void lift_le(){
   if(LIFT_motor ==false){
-    for (int k=20; k<25; k++){
+    for (int k=20; k<30; k++){
       ledcWriteChannel(pwmChannel_2, k);
-      digitalWrite(motor4_in1, LOW);
-      digitalWrite(motor4_in2, HIGH);
+      digitalWrite(motor4_in1, HIGH);
+      digitalWrite(motor4_in2, LOW);
       vTaskDelay(pdMS_TO_TICKS(10));
     }
   } else{
@@ -549,11 +564,14 @@ void lift_le(){
 //lift fel
 void lift_fel(){
   if(LIFT_motor ==false){
-    for (int i=40; i<110; i++){
+    for (int i=50; i<131; i++){
       ledcWriteChannel(pwmChannel_2, i);
-      digitalWrite(motor4_in1, HIGH);
-      digitalWrite(motor4_in2, LOW);
-      vTaskDelay(pdMS_TO_TICKS(10));
+      digitalWrite(motor4_in1, LOW);
+      digitalWrite(motor4_in2, HIGH);
+      vTaskDelay(pdMS_TO_TICKS(18));
+      if(i==130){
+        ledcWriteChannel(pwmChannel_2, 97);
+      }
     }
   } else{
     ledcWriteChannel(pwmChannel_2, 0);
@@ -568,11 +586,11 @@ void pusher_be(){
     ledcWriteChannel(pwmChannel_3, 155);
     digitalWrite(motor5_in1, LOW);
     digitalWrite(motor5_in2, HIGH);
-    vTaskDelay(100/ portTICK_PERIOD_MS);
+    vTaskDelay(150/ portTICK_PERIOD_MS);
     ledcWriteChannel(pwmChannel_3, 255);
     digitalWrite(motor5_in1, HIGH);
     digitalWrite(motor5_in2, LOW);
-    vTaskDelay(280/ portTICK_PERIOD_MS);
+    vTaskDelay(310/ portTICK_PERIOD_MS);
     ledcWriteChannel(pwmChannel_3, 0);
     digitalWrite(motor5_in1, LOW);
     digitalWrite(motor5_in2, LOW);
@@ -621,7 +639,7 @@ void counter(){
       counterValue = 1;
     }
     displayNumber(counterValue);
-    vTaskDelay(500/ portTICK_PERIOD_MS);   
+    vTaskDelay(100/ portTICK_PERIOD_MS);   
 
   }
   if (value_door == LOW) {
@@ -754,15 +772,16 @@ void stopAll(){
   digitalWrite(motor4_in2, LOW);
   digitalWrite(motor5_in1, LOW);
   digitalWrite(motor5_in2, LOW);
-  mcp.digitalWrite(A, HIGH);
-  mcp.digitalWrite(B, HIGH);
-  mcp.digitalWrite(C, HIGH);
-  mcp.digitalWrite(D, HIGH);
-  mcp.digitalWrite(E, HIGH);
-  mcp.digitalWrite(F, HIGH);
-  mcp.digitalWrite(G, HIGH);
+  mcp.digitalWrite(A, LOW);
+  mcp.digitalWrite(B, LOW);
+  mcp.digitalWrite(C, LOW);
+  mcp.digitalWrite(D, LOW);
+  mcp.digitalWrite(E, LOW);
+  mcp.digitalWrite(F, LOW);
+  mcp.digitalWrite(G, LOW);
   mcp.digitalWrite(stop_leds, LOW);
   mcp.digitalWrite(start_leds, LOW);
+  ventilator_ki()
   stop = false;
   state_of_buttons=false;
   PUSHER_motor =false;  
@@ -771,6 +790,7 @@ void stopAll(){
   CONVEYOR_motor =false;
   LIFT_motor =false;
   ventilator_state=false;
+  Reset_motors = true;
 }
 
 void loop() {
@@ -839,18 +859,15 @@ void startTask2(void *parameter) {
         lift_le();
       }
       if(value_lift_lent == HIGH && sensor_trapdoor_Triggered){
-      ledcWriteChannel(pwmChannel_1, 0);
-      digitalWrite(motor3_in1,LOW);
-      digitalWrite(motor3_in2,LOW);    
-      ledcWriteChannel(pwmChannel_2, 20);
-      digitalWrite(motor4_in1, LOW);
-      digitalWrite(motor4_in2, HIGH);      
-      vTaskDelay(200/ portTICK_PERIOD_MS);
-      ledcWriteChannel(pwmChannel_2, 0);
-      digitalWrite(motor4_in1, LOW);
-      digitalWrite(motor4_in2, LOW);      
-      trapdoor_le();
-      sensor_trapdoor_Triggered = false;
+        ledcWriteChannel(pwmChannel_2, 20);
+        digitalWrite(motor4_in1, LOW);
+        digitalWrite(motor4_in2, HIGH);      
+        vTaskDelay(200/ portTICK_PERIOD_MS);
+        ledcWriteChannel(pwmChannel_2, 0);
+        digitalWrite(motor4_in1, LOW);
+        digitalWrite(motor4_in2, LOW);      
+        trapdoor_le();
+        sensor_trapdoor_Triggered = false;
       }
     }
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -871,19 +888,14 @@ void startTask3(void *parameter) {
       }
       if(value_lift_lent == HIGH && sensor_szalag_Triggered){
         szalag_ki();
-        trapdoor_fel();
-        vTaskDelay(100/ portTICK_PERIOD_MS);
-        ledcWriteChannel(pwmChannel_1, 0);
-        digitalWrite(motor3_in1, LOW);
-        digitalWrite(motor3_in2, LOW);
-        szalag_ki();
-        ledcWriteChannel(pwmChannel_1, 0);
-        digitalWrite(motor3_in1, LOW);
-        digitalWrite(motor3_in2, LOW);
-        vTaskDelay(500/ portTICK_PERIOD_MS);
-        lift_fel();
         sensor_szalag_Triggered = false;
         sensor_lift_Triggered = true;
+        trapdoor_fel();
+        vTaskDelay(1500/ portTICK_PERIOD_MS);
+        ledcWriteChannel(pwmChannel_1, 0);
+        digitalWrite(motor3_in1, LOW);
+        digitalWrite(motor3_in2, LOW);
+        lift_fel();
       }    
     }
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -896,10 +908,10 @@ void startTask4(void *parameter) {
   for(;;){
     if(start){
       if(value_lift_fent == HIGH && sensor_lift_Triggered){
-        vTaskDelay(250/ portTICK_PERIOD_MS);
+        vTaskDelay(150/ portTICK_PERIOD_MS);
         ledcWriteChannel(pwmChannel_2, 50);
-        digitalWrite(motor4_in1, HIGH);
-        digitalWrite(motor4_in2, LOW);
+        digitalWrite(motor4_in1, LOW);
+        digitalWrite(motor4_in2, HIGH);
         pusher_be();
         pusher_ki();
         ledcWriteChannel(pwmChannel_2, 0);
@@ -934,7 +946,6 @@ void startTask5(void *parameter) {
       }
       stopAll();   
     }
-
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
@@ -949,14 +960,14 @@ void startTask6(void *parameter) {
         CONVEYOR=false;
         LIFT=false;
       }
-      if(sensor_trapdoor==HIGH){
+      if(value_trapdoor==HIGH){
         PUSHER=false;
         DOOR=false;
         TRAPDOOR=true;
         CONVEYOR=false;
         LIFT=false;
       }
-      if(sensor_szalag==HIGH){
+      if(value_szalag==HIGH){
         PUSHER=false;
         DOOR=false;
         TRAPDOOR=false;
@@ -977,7 +988,7 @@ void startTask6(void *parameter) {
         CONVEYOR=false;
         LIFT=false;
       }
-      vTaskDelay(1000/ portTICK_PERIOD_MS);
+      vTaskDelay(50 / portTICK_PERIOD_MS);
     }
     vTaskDelay(pdMS_TO_TICKS(10));
   }
@@ -991,22 +1002,16 @@ void startTask7(void *parameter) {
     }
     float avg = sum / 100.0;
     float voltage = avg * (3.3 / 4095);
-    Temperature = (voltage / 0.01)+11.4; //korrekció
-    Serial.print("Átlagolt hőmérséklet: ");
-    Serial.print(Temperature, 2);
-    Serial.println(" °C");
+    Temperature = (voltage / 0.01)+10; //korrekció
 
-    if (ventilator_state){
-      if (Temperature < 40){
-        ventilator_ki();
-        ventilator_state=false;
-      }
-    } else{
-        if (Temperature >= 45){
+    if (Temperature >= 23 && !ventilator_state) {
         ventilator_be();
-        ventilator_state=true;
-        }
-      }
+        ventilator_state = true;
+    }
+    if (Temperature < 20 && ventilator_state) {
+        ventilator_ki();
+        ventilator_state = false;
+    }
     vTaskDelay(pdMS_TO_TICKS(200));
   }
 }
