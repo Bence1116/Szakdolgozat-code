@@ -7,7 +7,6 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 
-
 void WebTask(void* pvParameters);
 void startTask1(void* parameter);
 void startTask2(void* parameter);
@@ -16,7 +15,6 @@ void startTask4(void* parameter);
 void startTask5(void* parameter);
 void startTask6(void* parameter);
 void startTask7(void* parameter);
-
 
 // MCP23017 objektum
 Adafruit_MCP23X17 mcp; // I²C portbővítő objektum
@@ -176,8 +174,7 @@ void handleRoot() {
         <div id="temp" style="font-size: 60px; color: black; margin-top: 20px;">Hőmérséklet:</div>
       </div>
       <div class="wrap">
-        <svg viewBox="0 0 900 420">
-          <title>Folyamatábra</title>          
+        <svg viewBox="0 0 900 420">     
 
           <defs>
             <!-- nyílhegy -->
@@ -444,13 +441,13 @@ void setup() {
   //MCP23017: 
   mcp.pinMode(start_leds, OUTPUT);
   mcp.pinMode(stop_leds, OUTPUT);
-  mcp.pinMode(Press_button_start, INPUT);
-  mcp.pinMode(Press_button_stop, INPUT);
-  mcp.pinMode(sensor_door, INPUT);
-  mcp.pinMode(sensor_trapdoor, INPUT);
-  mcp.pinMode(sensor_szalag, INPUT);
-  mcp.pinMode(sensor_lift_lent, INPUT);
-  mcp.pinMode(sensor_lift_fent, INPUT);
+  mcp.pinMode(Press_button_start, INPUT_PULLUP);
+  mcp.pinMode(Press_button_stop, INPUT_PULLUP);
+  mcp.pinMode(sensor_door, INPUT_PULLUP);
+  mcp.pinMode(sensor_trapdoor, INPUT_PULLUP);
+  mcp.pinMode(sensor_szalag, INPUT_PULLUP);
+  mcp.pinMode(sensor_lift_lent, INPUT_PULLUP);
+  mcp.pinMode(sensor_lift_fent, INPUT_PULLUP);
   mcp.pinMode(A, OUTPUT);
   mcp.pinMode(B, OUTPUT);
   mcp.pinMode(C, OUTPUT);
@@ -481,7 +478,18 @@ void setup() {
   xTaskCreatePinnedToCore(startTask4, "Task_4", 2028, NULL, 2, NULL,1);
   xTaskCreatePinnedToCore(startTask5, "Task_5", 2028, NULL, 2, NULL,1);
   xTaskCreatePinnedToCore(startTask6, "Task_6", 2028, NULL, 2, NULL,1);
-  xTaskCreatePinnedToCore(startTask7, "Task_7", 2028, NULL, 2, NULL,1);  
+  xTaskCreatePinnedToCore(startTask7, "Task_7", 2028, NULL, 2, NULL,1); 
+  //Counter 0
+  mcp.digitalWrite(A, HIGH);
+  mcp.digitalWrite(B, HIGH);
+  mcp.digitalWrite(C, HIGH);
+  mcp.digitalWrite(D, HIGH);
+  mcp.digitalWrite(E, HIGH);
+  mcp.digitalWrite(F, HIGH);
+  mcp.digitalWrite(G, LOW);  
+  //start, stop LED LOW
+  mcp.digitalWrite(start_leds, LOW);
+  mcp.digitalWrite(stop_leds, LOW);
 }
 // ajtó kinyitás
 void door(){
@@ -512,7 +520,7 @@ void door_close(){
     }
     digitalWrite(motor1_in1, HIGH);
     digitalWrite(motor1_in2, LOW);
-    vTaskDelay(100/ portTICK_PERIOD_MS);
+    vTaskDelay(220/ portTICK_PERIOD_MS);
     digitalWrite(motor1_in1, LOW);
     digitalWrite(motor1_in2, LOW);
   } else{
@@ -611,7 +619,7 @@ void lift_le(){
 //lift fel
 void lift_fel(){
   if(LIFT_motor ==false){
-    for (int i=50; i<131; i++){
+    for (int i=50; i<140; i++){
       if(LIFT_motor){
         ledcWriteChannel(pwmChannel_2, 0);
         digitalWrite(motor4_in1, LOW);
@@ -622,8 +630,8 @@ void lift_fel(){
       digitalWrite(motor4_in1, LOW);
       digitalWrite(motor4_in2, HIGH);
       vTaskDelay(pdMS_TO_TICKS(18));
-      if(i==130){
-        ledcWriteChannel(pwmChannel_2, 97);
+      if(i==139){
+        ledcWriteChannel(pwmChannel_2, 95);
       }
     }
   } else{
@@ -642,14 +650,14 @@ void pusher_be(){
       digitalWrite(motor5_in2, LOW);
       return;      
     }
-    ledcWriteChannel(pwmChannel_3, 155);
+    ledcWriteChannel(pwmChannel_3, 200);
     digitalWrite(motor5_in1, LOW);
     digitalWrite(motor5_in2, HIGH);
     vTaskDelay(150/ portTICK_PERIOD_MS);
     ledcWriteChannel(pwmChannel_3, 255);
     digitalWrite(motor5_in1, HIGH);
     digitalWrite(motor5_in2, LOW);
-    vTaskDelay(310/ portTICK_PERIOD_MS);
+    vTaskDelay(400/ portTICK_PERIOD_MS);
     ledcWriteChannel(pwmChannel_3, 0);
     digitalWrite(motor5_in1, LOW);
     digitalWrite(motor5_in2, LOW);
@@ -685,8 +693,8 @@ void pusher_ki(){
 
 //ventilátor be
 void ventilator_be(){
-  digitalWrite(motor6_in1, LOW);
-  digitalWrite(motor6_in2, HIGH);  
+  digitalWrite(motor6_in1, HIGH);
+  digitalWrite(motor6_in2, LOW);  
 }
 //ventilátor ki
 void ventilator_ki(){
@@ -699,7 +707,9 @@ void counter(){
  
   if (value_door == HIGH && prev_sensor_state == LOW) {
     counterValue++;
-  
+    if(start==false&& stop==false){
+      counterValue = 0;
+    }
     if (counterValue > 10) {
       counterValue = 1;
     }
@@ -844,10 +854,15 @@ void stopAll(){
   mcp.digitalWrite(E, LOW);
   mcp.digitalWrite(F, LOW);
   mcp.digitalWrite(G, LOW);
-  mcp.digitalWrite(stop_leds, LOW);
   mcp.digitalWrite(start_leds, LOW);
   ventilator_ki();
-  stop = false;
+  PUSHER=false;
+  DOOR=true;
+  TRAPDOOR=false;
+  CONVEYOR=false;
+  LIFT=false;
+  start=false;
+  stop = false;  
   state_of_buttons=false;
   PUSHER_motor =false;  
   DOOR_motor =false;
@@ -856,11 +871,10 @@ void stopAll(){
   LIFT_motor =false;
   ventilator_state=false;
   Reset_motors = true;
+  mcp.digitalWrite(stop_leds, LOW);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  // Serial monitor olvasása. Ezeket a legelején hagyom bent ellenőrzés céljából, majd kiveszem ezt a részt.
   value_door = mcp.digitalRead(sensor_door);
   value_trapdoor = mcp.digitalRead(sensor_trapdoor);
   value_szalag = mcp.digitalRead(sensor_szalag);
@@ -894,11 +908,11 @@ void startTask1(void *parameter) {
     TRAPDOOR =false;
     CONVEYOR =false;
     LIFT =false;
+    START=false;
     mcp.digitalWrite(start_leds, HIGH);
     mcp.digitalWrite(stop_leds, LOW);
     counterValue = 0;
-    displayNumber(counterValue);
-	START=false; 
+    displayNumber(counterValue); 
     // Ajtó kinyílik és úgy marad, első állomás
     door(); 
     }
@@ -913,35 +927,33 @@ void startTask1(void *parameter) {
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
-
-
+//Lift lemegy, trapdoor lehajtódik
 void startTask2(void *parameter) {
   for(;;){
-    // Második állomás
-    if(start==true){
+    if(start){
       if(value_trapdoor==HIGH){
         sensor_trapdoor_Triggered = true;
         lift_le();
       }
       if(value_lift_lent == HIGH && sensor_trapdoor_Triggered){
-        ledcWriteChannel(pwmChannel_2, 20);
+        ledcWriteChannel(pwmChannel_2, 30);
         digitalWrite(motor4_in1, LOW);
-        digitalWrite(motor4_in2, HIGH);      
+        digitalWrite(motor4_in2, HIGH);     
         vTaskDelay(150/ portTICK_PERIOD_MS);
         ledcWriteChannel(pwmChannel_2, 0);
         digitalWrite(motor4_in1, LOW);
-        digitalWrite(motor4_in2, LOW);      
+        digitalWrite(motor4_in2, LOW);     
+        sensor_trapdoor_Triggered = false;
         trapdoor_le();
-	sensor_trapdoor_Triggered = false;
       }
     }
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
-
+//Szalag bekapcsol, felvonó felmegy
 void startTask3(void *parameter) {
   for(;;){
-    if(start==true){
+    if(start){
       if(value_szalag == HIGH){
         sensor_szalag_Triggered = true;
         ledcWriteChannel(pwmChannel_1, 0);
@@ -955,7 +967,7 @@ void startTask3(void *parameter) {
         sensor_szalag_Triggered = false;
         sensor_lift_Triggered = true;
         trapdoor_fel();
-        vTaskDelay(500/ portTICK_PERIOD_MS);
+        vTaskDelay(1000/ portTICK_PERIOD_MS);
         ledcWriteChannel(pwmChannel_1, 0);
         digitalWrite(motor3_in1, LOW);
         digitalWrite(motor3_in2, LOW);
@@ -963,15 +975,14 @@ void startTask3(void *parameter) {
       }    
     }
     vTaskDelay(pdMS_TO_TICKS(10));
-
   }
 }
-
+//A labda kikerül a felvonóból
 void startTask4(void *parameter) {
   for(;;){
     if(start){
       if(value_lift_fent == HIGH && sensor_lift_Triggered){
-        vTaskDelay(300/ portTICK_PERIOD_MS);
+        vTaskDelay(400/ portTICK_PERIOD_MS);
         ledcWriteChannel(pwmChannel_2, 50);
         digitalWrite(motor4_in1, LOW);
         digitalWrite(motor4_in2, HIGH);
@@ -981,38 +992,33 @@ void startTask4(void *parameter) {
         digitalWrite(motor4_in1, LOW);
         digitalWrite(motor4_in2, LOW);
         sensor_lift_Triggered = false;
-      }     
+      }    
     }
     vTaskDelay(pdMS_TO_TICKS(10));  
   }
 }
-
+//Stop
 void startTask5(void *parameter) {
   for(;;){
-    if(stop && value_lift_fent == LOW){
-      // Ajtó becsukása
+    if(stop && DOOR_motor==false){
       door_close();
     }
-    // Lekapcsolás
-    if(stop&& value_door==HIGH){
-      start = false;
-      stop=false;
-      counterValue = 0;
+    if(stop && start && value_door==HIGH){
       stopAll(); 
     }
-    if((stop) && (PUSHER_motor || DOOR_motor || TRAPDOOR_motor || CONVEYOR_motor ||LIFT_motor)) {
+    if((stop) && (start) && (PUSHER_motor || DOOR_motor || TRAPDOOR_motor || CONVEYOR_motor ||LIFT_motor)) {
       start = false;
-      stop=false;
       counterValue = 0;
       if(DOOR_motor==false){
         door_close();
+        stopAll();
       }
-      stopAll();   
+      stopAll();
     }
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
-
+//Pozíció
 void startTask6(void *parameter) {
   for(;;){
     if(start){
@@ -1037,7 +1043,7 @@ void startTask6(void *parameter) {
         CONVEYOR=true;
         LIFT=false;
       }
-      if(value_lift_lent==HIGH && sensor_szalag_Triggered){
+      if(value_lift_lent==HIGH && sensor_lift_Triggered){
         PUSHER=false;
         DOOR=false;
         TRAPDOOR=false;
@@ -1056,7 +1062,7 @@ void startTask6(void *parameter) {
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
-
+//Hőmérséklet
 void startTask7(void *parameter) {
   for(;;){
     long sum = 0;
@@ -1067,7 +1073,7 @@ void startTask7(void *parameter) {
     float voltage = avg * (3.3 / 4095);
     Temperature = (voltage / 0.01)+10; //korrekció
 
-    if (Temperature >= 23 && !ventilator_state) {
+    if (Temperature >= 21 && !ventilator_state) {
         ventilator_be();
         ventilator_state = true;
     }
