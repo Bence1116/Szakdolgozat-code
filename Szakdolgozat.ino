@@ -7,6 +7,7 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 
+
 void WebTask(void* pvParameters);
 void startTask1(void* parameter);
 void startTask2(void* parameter);
@@ -15,6 +16,7 @@ void startTask4(void* parameter);
 void startTask5(void* parameter);
 void startTask6(void* parameter);
 void startTask7(void* parameter);
+
 
 // MCP23017 objektum
 Adafruit_MCP23X17 mcp; // I²C portbővítő objektum
@@ -96,6 +98,7 @@ volatile bool sensor_trapdoor_Triggered = false;
 volatile bool START =false;
 volatile bool STOP = false;
 volatile bool state_of_buttons=false;
+volatile bool closing_door=false;
 
 volatile bool PUSHER =false;  
 volatile bool DOOR =true;
@@ -871,6 +874,7 @@ void stopAll(){
   LIFT_motor =false;
   ventilator_state=false;
   Reset_motors = true;
+  closing_door=false;
   mcp.digitalWrite(stop_leds, LOW);
 }
 
@@ -1000,8 +1004,9 @@ void startTask4(void *parameter) {
 //Stop
 void startTask5(void *parameter) {
   for(;;){
-    if(stop && DOOR_motor==false){
+    if(stop && DOOR_motor==false && !closing_door){
       door_close();
+      closing_door=true;
     }
     if(stop && start && value_door==HIGH){
       stopAll(); 
@@ -1009,7 +1014,7 @@ void startTask5(void *parameter) {
     if((stop) && (start) && (PUSHER_motor || DOOR_motor || TRAPDOOR_motor || CONVEYOR_motor ||LIFT_motor)) {
       start = false;
       counterValue = 0;
-      if(DOOR_motor==false){
+      if(DOOR_motor==false && !closing_door){
         door_close();
         stopAll();
       }
