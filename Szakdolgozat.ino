@@ -1008,14 +1008,15 @@ void startTask5(void *parameter) {
       door_close();
       closing_door=true;
     }
-    if(stop && start && value_door==HIGH){
+    if(stop && value_door==HIGH){
       stopAll(); 
     }
-    if((stop) && (start) && (PUSHER_motor || DOOR_motor || TRAPDOOR_motor || CONVEYOR_motor ||LIFT_motor)) {
+    if((stop) && (PUSHER_motor || DOOR_motor || TRAPDOOR_motor || CONVEYOR_motor ||LIFT_motor)) {
       start = false;
       counterValue = 0;
       if(DOOR_motor==false && !closing_door){
         door_close();
+        closing_door=true;
         stopAll();
       }
       stopAll();
